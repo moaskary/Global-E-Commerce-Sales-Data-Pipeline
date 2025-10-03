@@ -1,0 +1,59 @@
+version: '3.8'
+
+# 'services' is where we define each of our containers.
+services:
+  # 1. PostgreSQL Service
+  postgres:
+    image: postgres:13-alpine # Use the official PostgreSQL version 13 image. 'alpine' is a lightweight version.
+    container_name: postgres_staging
+    hostname: postgres_staging
+    environment:
+      - POSTGRES_USER=admin      # Sets the superuser username for the database.
+      - POSTGRES_PASSWORD=admin  # Sets the superuser password.
+      - POSTGRES_DB=ecommerce    # Creates this database upon initialization.
+    ports:
+      - "5432:5432"              # Maps port 5432 on your Mac to port 5432 in the container, so you can connect to it.
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # This persists the database data even if you stop/remove the container.
+      # We will add a volume to load initialization scripts later.
+    networks:
+      - ecommerce-net
+  
+  # 2. Spark Master Service
+  spark-master:
+    image: bitnami/spark:3 # Use a well-maintained Spark image from Bitnami.
+    container_name: spark_master
+    hostname: spark_master
+    environment:
+      - SPARK_MODE=master # Sets this container to run as the master node.
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+    ports:
+      - "8081:8080"       # Maps the Spark Master UI to port 8081 on your Mac.
+      - "7077:7077"
+    networks:
+      - ecommerce-net
+
+  # 3. Spark Worker Service
+  spark-worker:
+    image: bitnami/spark:3
+    container_name: spark_worker
+    environment:
+      - SPARK_MODE=worker     # Sets this container to run as a worker node.
+      - SPARK_MASTER_URL=spark://spark-master:7077 # Tells the worker where to find the master.
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_WORKER_CORES=1
+    depends_on:
+      - spark-master        # Ensures the worker only starts after the master is running.
+    restart: unless-stopped
+    networks:
+      - ecommerce-net
+
+
+# 'volumes' is where docker can store persistent data
+volumes:
+  postgres_data: {} # defines the named volume we used for PostgreSQL
+
+networks:
+  ecommerce-net:
+    driver: bridge

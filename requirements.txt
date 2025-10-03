@@ -1,0 +1,6 @@
+pandas
+openpyxl
+pyarrow
+sqlalchemy
+psycopg2-binary
+pyspark==3.3.4
